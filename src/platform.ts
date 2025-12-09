@@ -7,15 +7,15 @@ import { PLATFORM_NAME, PLUGIN_NAME } from './settings.js';
 // This is only required when using Custom Services and Characteristics not support by HomeKit
 import { EveHomeKitTypes } from 'homebridge-lib/EveHomeKitTypes';
 
+// Avoid unused variable warnings
+void PLATFORM_NAME;
+void PLUGIN_NAME;
+
 interface MQTTConfig extends PlatformConfig {
   broker: string;
   username?: string;
   password?: string;
   topicPrefix?: string;
-  accessories?: Array<{
-    name: string;
-    type: string;
-  }>;
 }
 
 /**
@@ -146,82 +146,38 @@ export class ExampleHomebridgePlatform implements DynamicPlatformPlugin {
 
     // add the restored accessory to the accessories cache, so we can track if it has already been registered
     this.accessories.set(accessory.UUID, accessory);
+    
+    // Set up MQTT for this cached accessory immediately
+    new ExamplePlatformAccessory(this, accessory);
   }
 
   /**
-   * This is an example method showing how to register discovered accessories.
-   * Accessories must only be registered once, previously created accessories
-   * must not be registered again to prevent "duplicate UUID" errors.
+   * This method sets up listeners to automatically add MQTT support to all accessories.
+   * It monitors accessory registration events from all plugins and adds MQTT control dynamically.
    */
   discoverDevices() {
-    // Get accessories from config
-    const mqttConfig = this.config as MQTTConfig;
-    const configuredAccessories = mqttConfig.accessories || [];
-
-    // If no accessories are configured, log a message and return
-    if (configuredAccessories.length === 0) {
-      this.log.warn('No accessories configured. Please add accessories in the plugin config.');
-      return;
-    }
-
-    // loop over the discovered devices and register each one if it has not already been registered
-    for (const device of configuredAccessories) {
-      // generate a unique id for the accessory this should be generated from
-      // something globally unique, but constant, for example, the device serial
-      // number or MAC address
-      const uuid = this.api.hap.uuid.generate(device.name);
-
-      // see if an accessory with the same uuid has already been registered and restored from
-      // the cached devices we stored in the `configureAccessory` method above
-      const existingAccessory = this.accessories.get(uuid);
-
-      if (existingAccessory) {
-        // the accessory already exists
-        this.log.info('Restoring existing accessory from cache:', existingAccessory.displayName);
-
-        // if you need to update the accessory.context then you should run `api.updatePlatformAccessories`. e.g.:
-        existingAccessory.context.device = device;
-        this.api.updatePlatformAccessories([existingAccessory]);
-
-        // create the accessory handler for the restored accessory
-        // this is imported from `platformAccessory.ts`
-        new ExamplePlatformAccessory(this, existingAccessory);
-
-        // it is possible to remove platform accessories at any time using `api.unregisterPlatformAccessories`, e.g.:
-        // remove platform accessories when no longer present
-        // this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [existingAccessory]);
-        // this.log.info('Removing existing accessory from cache:', existingAccessory.displayName);
-      } else {
-        // the accessory does not yet exist, so we need to create it
-        this.log.info('Adding new accessory:', device.name);
-
-        // create a new accessory
-        const accessory = new this.api.platformAccessory(device.name, uuid);
-
-        // store a copy of the device object in the `accessory.context`
-        // the `context` property can be used to store any data about the accessory you may need
-        accessory.context.device = device;
-
-        // create the accessory handler for the newly create accessory
-        // this is imported from `platformAccessory.ts`
-        new ExamplePlatformAccessory(this, accessory);
-
-        // link the accessory to your platform
-        this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory]);
+    this.log.info('MQTT Control plugin ready. Monitoring for accessories...');
+    
+    // Listen for accessories being registered by other plugins
+    // We use internal events to detect when accessories are registered
+    const homebridgeAPI = this.api as unknown as {
+      on: (event: string, listener: (...args: unknown[]) => void) => void;
+    };
+    
+    // Listen for platform accessories being registered
+    homebridgeAPI.on('registerPlatformAccessories', (...args: unknown[]) => {
+      const accessories = args[0] as PlatformAccessory[];
+      this.log.debug('Detected new platform accessories being registered:', accessories.length);
+      for (const accessory of accessories) {
+        // Only add MQTT support to accessories we haven't seen before
+        if (!this.accessories.has(accessory.UUID)) {
+          this.log.info('Adding MQTT support to:', accessory.displayName);
+          this.accessories.set(accessory.UUID, accessory);
+          new ExamplePlatformAccessory(this, accessory);
+        }
       }
-
-      // push into discoveredCacheUUIDs
-      this.discoveredCacheUUIDs.push(uuid);
-    }
-
-    // you can also deal with accessories from the cache which are no longer present by removing them from Homebridge
-    // for example, if your plugin logs into a cloud account to retrieve a device list, and a user has previously removed a device
-    // from this cloud account, then this device will no longer be present in the device list but will still be in the Homebridge cache
-    for (const [uuid, accessory] of this.accessories) {
-      if (!this.discoveredCacheUUIDs.includes(uuid)) {
-        this.log.info('Removing existing accessory from cache:', accessory.displayName);
-        this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory]);
-      }
-    }
+    });
+    
+    this.log.info('MQTT Control is now monitoring all Homebridge accessories');
   }
 }

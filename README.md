@@ -43,25 +43,13 @@ Add the platform to your Homebridge `config.json`:
       "broker": "mqtt://localhost:1883",
       "username": "your_username",
       "password": "your_password",
-      "topicPrefix": "homebridge",
-      "accessories": [
-        {
-          "name": "Living Room Light",
-          "type": "lightbulb"
-        },
-        {
-          "name": "Kitchen Switch",
-          "type": "switch"
-        },
-        {
-          "name": "Bedroom Outlet",
-          "type": "outlet"
-        }
-      ]
+      "topicPrefix": "homebridge"
     }
   ]
 }
 ```
+
+**That's it!** The plugin will automatically detect and add MQTT control to all accessories registered in your Homebridge instance, regardless of which plugin created them.
 
 ### Configuration Parameters
 
@@ -73,14 +61,20 @@ Add the platform to your Homebridge `config.json`:
 | `username` | No | MQTT broker username | - |
 | `password` | No | MQTT broker password | - |
 | `topicPrefix` | No | Prefix for all MQTT topics | `homebridge` |
-| `accessories` | No | Array of accessories to create | `[]` |
 
-### Accessory Configuration
+## How It Works
 
-| Parameter | Required | Description | Options |
-|-----------|----------|-------------|---------|
-| `name` | Yes | Name of the accessory | - |
-| `type` | Yes | Type of accessory | `lightbulb`, `switch`, `outlet` |
+The plugin automatically discovers all accessories in your Homebridge setup:
+
+1. **Cached Accessories**: When Homebridge starts, all previously registered accessories are loaded from cache
+2. **New Accessories**: The plugin monitors for new accessories being registered by any plugin
+3. **MQTT Integration**: For each discovered accessory, the plugin:
+   - Detects the accessory type (lightbulb, switch, outlet, fan, thermostat, etc.)
+   - Creates MQTT topics for status and control
+   - Publishes state changes to MQTT
+   - Subscribes to commands from MQTT
+
+No manual configuration needed - just connect your MQTT broker and all your accessories become MQTT-enabled!
 
 ## MQTT Topics
 

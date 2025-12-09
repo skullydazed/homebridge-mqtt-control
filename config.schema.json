@@ -36,33 +36,6 @@
         "type": "string",
         "default": "homebridge",
         "description": "Prefix for all MQTT topics (default: homebridge)"
-      },
-      "accessories": {
-        "title": "Accessories",
-        "type": "array",
-        "items": {
-          "type": "object",
-          "properties": {
-            "name": {
-              "title": "Accessory Name",
-              "type": "string",
-              "required": true,
-              "description": "Name of the accessory as shown in HomeKit"
-            },
-            "type": {
-              "title": "Accessory Type",
-              "type": "string",
-              "required": true,
-              "default": "lightbulb",
-              "oneOf": [
-                { "title": "Lightbulb", "enum": ["lightbulb"] },
-                { "title": "Switch", "enum": ["switch"] },
-                { "title": "Outlet", "enum": ["outlet"] }
-              ],
-              "description": "Type of accessory"
-            }
-          }
-        }
       }
     }
   }

@@ -27,51 +27,40 @@ export class ExamplePlatformAccessory {
     private readonly platform: ExampleHomebridgePlatform,
     private readonly accessory: PlatformAccessory,
   ) {
-    this.deviceName = accessory.context.device.name;
-    this.deviceType = accessory.context.device.type || 'lightbulb';
+    this.deviceName = accessory.displayName;
     // Sanitize device name for MQTT topics
     this.mqttTopicName = this.sanitizeMqttTopic(this.deviceName);
+    
+    // Detect the accessory type by checking existing services
+    this.deviceType = this.detectAccessoryType();
+    this.service = this.getOrCreatePrimaryService();
 
-    // set accessory information
-    this.accessory.getService(this.platform.Service.AccessoryInformation)!
-      .setCharacteristic(this.platform.Characteristic.Manufacturer, 'MQTT Control')
-      .setCharacteristic(this.platform.Characteristic.Model, this.deviceType)
-      .setCharacteristic(this.platform.Characteristic.SerialNumber, this.deviceName);
-
-    // get the service based on device type
-    // you can create multiple services for each accessory
-    switch (this.deviceType.toLowerCase()) {
-    case 'switch':
-      this.service = this.accessory.getService(this.platform.Service.Switch) || 
-        this.accessory.addService(this.platform.Service.Switch);
-      break;
-    case 'outlet':
-      this.service = this.accessory.getService(this.platform.Service.Outlet) || 
-        this.accessory.addService(this.platform.Service.Outlet);
-      break;
-    case 'lightbulb':
-    default:
-      this.service = this.accessory.getService(this.platform.Service.Lightbulb) || 
-        this.accessory.addService(this.platform.Service.Lightbulb);
-      break;
+    // Skip MQTT setup if no valid service was found
+    if (this.service.UUID === this.platform.Service.AccessoryInformation.UUID) {
+      this.platform.log.warn('Skipping MQTT setup for:', this.deviceName, '(no controllable service found)');
+      return;
     }
 
     // set the service name, this is what is displayed as the default name on the Home app
-    // in this example we are using the name we stored in the `accessory.context` in the `discoverDevices` method.
     this.service.setCharacteristic(this.platform.Characteristic.Name, this.deviceName);
 
     // each service must implement at-minimum the "required characteristics" for the given service type
     // see https://developers.homebridge.io/#/service/Lightbulb
 
-    // register handlers for the On/Off Characteristic
-    this.service.getCharacteristic(this.platform.Characteristic.On)
-      .onSet(this.setOn.bind(this)) // SET - bind to the `setOn` method below
-      .onGet(this.getOn.bind(this)); // GET - bind to the `getOn` method below
+    // Try to register handlers for the On/Off Characteristic if it exists
+    const onCharacteristic = this.service.getCharacteristic(this.platform.Characteristic.On);
+    if (onCharacteristic) {
+      onCharacteristic
+        .onSet(this.setOn.bind(this)) // SET - bind to the `setOn` method below
+        .onGet(this.getOn.bind(this)); // GET - bind to the `getOn` method below
+    }
 
     // register handlers for the Brightness Characteristic (only for lightbulbs)
     if (this.deviceType.toLowerCase() === 'lightbulb') {
-      this.service.getCharacteristic(this.platform.Characteristic.Brightness)
-        .onSet(this.setBrightness.bind(this)); // SET - bind to the `setBrightness` method below
+      const brightnessCharacteristic = this.service.getCharacteristic(this.platform.Characteristic.Brightness);
+      if (brightnessCharacteristic) {
+        brightnessCharacteristic.onSet(this.setBrightness.bind(this)); // SET - bind to the `setBrightness` method below
+      }
     }
 
     // Subscribe to MQTT commands for this device
@@ -79,6 +68,56 @@ export class ExamplePlatformAccessory {
 
     // Publish initial status
     this.publishState();
+  }
+
+  /**
+   * Detect the accessory type by checking existing services
+   */
+  detectAccessoryType(): string {
+    // Check for existing service types
+    if (this.accessory.getService(this.platform.Service.Lightbulb)) {
+      return 'lightbulb';
+    } else if (this.accessory.getService(this.platform.Service.Switch)) {
+      return 'switch';
+    } else if (this.accessory.getService(this.platform.Service.Outlet)) {
+      return 'outlet';
+    } else if (this.accessory.getService(this.platform.Service.Fan)) {
+      return 'fan';
+    } else if (this.accessory.getService(this.platform.Service.Thermostat)) {
+      return 'thermostat';
+    } else if (this.accessory.getService(this.platform.Service.WindowCovering)) {
+      return 'windowcovering';
+    } else if (this.accessory.getService(this.platform.Service.Door)) {
+      return 'door';
+    } else if (this.accessory.getService(this.platform.Service.LockMechanism)) {
+      return 'lock';
+    }
+    // Default to switch for unknown types
+    return 'switch';
+  }
+
+  /**
+   * Get or create the primary controllable service for this accessory
+   */
+  getOrCreatePrimaryService(): Service {
+    // Try to get existing service first
+    const service = this.accessory.getService(this.platform.Service.Lightbulb) ||
+                  this.accessory.getService(this.platform.Service.Switch) ||
+                  this.accessory.getService(this.platform.Service.Outlet) ||
+                  this.accessory.getService(this.platform.Service.Fan) ||
+                  this.accessory.getService(this.platform.Service.Thermostat) ||
+                  this.accessory.getService(this.platform.Service.WindowCovering) ||
+                  this.accessory.getService(this.platform.Service.Door) ||
+                  this.accessory.getService(this.platform.Service.LockMechanism);
+    
+    // If no recognized service exists, don't create a new one - just log a warning
+    if (!service) {
+      this.platform.log.warn('No recognized controllable service found for:', this.deviceName);
+      // Return a placeholder - we'll skip MQTT setup for this accessory
+      return this.accessory.getService(this.platform.Service.AccessoryInformation)!;
+    }
+    
+    return service;
   }
 
   /**
