@@ -48,18 +48,26 @@ export class ExamplePlatformAccessory {
     // see https://developers.homebridge.io/#/service/Lightbulb
 
     // Try to register handlers for the On/Off Characteristic if it exists
-    const onCharacteristic = this.service.getCharacteristic(this.platform.Characteristic.On);
-    if (onCharacteristic) {
-      onCharacteristic
-        .onSet(this.setOn.bind(this)) // SET - bind to the `setOn` method below
-        .onGet(this.getOn.bind(this)); // GET - bind to the `getOn` method below
+    try {
+      const onCharacteristic = this.service.getCharacteristic(this.platform.Characteristic.On);
+      if (onCharacteristic) {
+        onCharacteristic
+          .onSet(this.setOn.bind(this)) // SET - bind to the `setOn` method below
+          .onGet(this.getOn.bind(this)); // GET - bind to the `getOn` method below
+      }
+    } catch (error) {
+      this.platform.log.debug('On characteristic not found for:', this.deviceName);
     }
 
     // register handlers for the Brightness Characteristic (only for lightbulbs)
     if (this.deviceType.toLowerCase() === 'lightbulb') {
-      const brightnessCharacteristic = this.service.getCharacteristic(this.platform.Characteristic.Brightness);
-      if (brightnessCharacteristic) {
-        brightnessCharacteristic.onSet(this.setBrightness.bind(this)); // SET - bind to the `setBrightness` method below
+      try {
+        const brightnessCharacteristic = this.service.getCharacteristic(this.platform.Characteristic.Brightness);
+        if (brightnessCharacteristic) {
+          brightnessCharacteristic.onSet(this.setBrightness.bind(this)); // SET - bind to the `setBrightness` method below
+        }
+      } catch (error) {
+        this.platform.log.debug('Brightness characteristic not found for:', this.deviceName);
       }
     }
 

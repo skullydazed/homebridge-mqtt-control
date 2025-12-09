@@ -152,32 +152,19 @@ export class ExampleHomebridgePlatform implements DynamicPlatformPlugin {
   }
 
   /**
-   * This method sets up listeners to automatically add MQTT support to all accessories.
-   * It monitors accessory registration events from all plugins and adds MQTT control dynamically.
+   * This method is called after Homebridge finishes launching and restoring cached accessories.
+   * The plugin adds MQTT support to all accessories it receives through configureAccessory().
+   * 
+   * Note: This plugin only works with accessories that have been previously cached by Homebridge.
+   * It will not detect brand new accessories until they are restarted and cached.
    */
   discoverDevices() {
-    this.log.info('MQTT Control plugin ready. Monitoring for accessories...');
+    this.log.info('MQTT Control plugin initialized');
+    this.log.info('MQTT support added to', this.accessories.size, 'cached accessor(ies)');
     
-    // Listen for accessories being registered by other plugins
-    // We use internal events to detect when accessories are registered
-    const homebridgeAPI = this.api as unknown as {
-      on: (event: string, listener: (...args: unknown[]) => void) => void;
-    };
-    
-    // Listen for platform accessories being registered
-    homebridgeAPI.on('registerPlatformAccessories', (...args: unknown[]) => {
-      const accessories = args[0] as PlatformAccessory[];
-      this.log.debug('Detected new platform accessories being registered:', accessories.length);
-      for (const accessory of accessories) {
-        // Only add MQTT support to accessories we haven't seen before
-        if (!this.accessories.has(accessory.UUID)) {
-          this.log.info('Adding MQTT support to:', accessory.displayName);
-          this.accessories.set(accessory.UUID, accessory);
-          new ExamplePlatformAccessory(this, accessory);
-        }
-      }
-    });
-    
-    this.log.info('MQTT Control is now monitoring all Homebridge accessories');
+    if (this.accessories.size === 0) {
+      this.log.warn('No accessories found in cache. Make sure other plugins are configured and have registered accessories.');
+      this.log.warn('After other plugins create accessories, restart Homebridge for MQTT Control to detect them.');
+    }
   }
 }

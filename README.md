@@ -67,14 +67,16 @@ Add the platform to your Homebridge `config.json`:
 The plugin automatically discovers all accessories in your Homebridge setup:
 
 1. **Cached Accessories**: When Homebridge starts, all previously registered accessories are loaded from cache
-2. **New Accessories**: The plugin monitors for new accessories being registered by any plugin
+2. **Automatic Detection**: The plugin receives all cached accessories through Homebridge's standard platform mechanism
 3. **MQTT Integration**: For each discovered accessory, the plugin:
    - Detects the accessory type (lightbulb, switch, outlet, fan, thermostat, etc.)
    - Creates MQTT topics for status and control
    - Publishes state changes to MQTT
    - Subscribes to commands from MQTT
 
-No manual configuration needed - just connect your MQTT broker and all your accessories become MQTT-enabled!
+No manual configuration needed - just connect your MQTT broker and all your cached accessories become MQTT-enabled!
+
+**Note:** When you first install the plugin or add new accessories from other plugins, you may need to restart Homebridge for the MQTT Control plugin to detect them. After the initial restart, all accessories will be cached and automatically available.
 
 ## MQTT Topics
 
