@@ -123,14 +123,18 @@ export class ExampleHomebridgePlatform implements DynamicPlatformPlugin {
       return;
     }
 
-    const fullTopic = `${this.topicPrefix}/${topic}`;
-    this.mqttClient.publish(fullTopic, message, { retain: true }, (error) => {
-      if (error) {
-        this.log.error('Error publishing to MQTT:', error.message);
-      } else {
-        this.log.debug('Published to MQTT:', fullTopic, '=', message);
-      }
-    });
+    try {
+      const fullTopic = `${this.topicPrefix}/${topic}`;
+      this.mqttClient.publish(fullTopic, message, { retain: true }, (error) => {
+        if (error) {
+          this.log.error('Error publishing to MQTT:', error.message);
+        } else {
+          this.log.debug('Published to MQTT:', fullTopic, '=', message);
+        }
+      });
+    } catch (error) {
+      this.log.error('Exception while publishing to MQTT:', error);
+    }
   }
 
   /**

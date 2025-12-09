@@ -86,16 +86,18 @@ Add the platform to your Homebridge `config.json`:
 
 The plugin uses the following MQTT topic structure:
 
+**Note:** Accessory names are automatically sanitized for MQTT topics. Spaces and special characters are replaced with hyphens. For example, "Living Room Light" becomes "Living-Room-Light".
+
 ### Status Topics (Published by Plugin)
 
 The plugin publishes device status to:
 ```
-{topicPrefix}/{accessoryName}/status
+{topicPrefix}/{sanitized-accessory-name}/status
 ```
 
 **Example:**
 ```
-homebridge/Living Room Light/status
+homebridge/Living-Room-Light/status
 ```
 
 **Payload format:**
@@ -112,12 +114,12 @@ For switches and outlets, the `brightness` property is omitted.
 
 The plugin listens for commands on:
 ```
-{topicPrefix}/{accessoryName}/set
+{topicPrefix}/{sanitized-accessory-name}/set
 ```
 
 **Example:**
 ```
-homebridge/Living Room Light/set
+homebridge/Living-Room-Light/set
 ```
 
 **Payload format:**
@@ -149,19 +151,19 @@ Payload: `true` when connected
 ### Turn on a light via MQTT
 
 ```bash
-mosquitto_pub -h localhost -t "homebridge/Living Room Light/set" -m '{"on": true}'
+mosquitto_pub -h localhost -t "homebridge/Living-Room-Light/set" -m '{"on": true}'
 ```
 
 ### Set brightness of a light
 
 ```bash
-mosquitto_pub -h localhost -t "homebridge/Living Room Light/set" -m '{"on": true, "brightness": 75}'
+mosquitto_pub -h localhost -t "homebridge/Living-Room-Light/set" -m '{"on": true, "brightness": 75}'
 ```
 
 ### Turn off a switch
 
 ```bash
-mosquitto_pub -h localhost -t "homebridge/Kitchen Switch/set" -m '{"on": false}'
+mosquitto_pub -h localhost -t "homebridge/Kitchen-Switch/set" -m '{"on": false}'
 ```
 
 ### Monitor status changes
@@ -192,13 +194,13 @@ Add MQTT switches/lights in your Home Assistant configuration:
 light:
   - platform: mqtt
     name: "Living Room Light"
-    state_topic: "homebridge/Living Room Light/status"
-    command_topic: "homebridge/Living Room Light/set"
+    state_topic: "homebridge/Living-Room-Light/status"
+    command_topic: "homebridge/Living-Room-Light/set"
     payload_on: '{"on": true}'
     payload_off: '{"on": false}'
     state_value_template: "{{ 'ON' if value_json.on else 'OFF' }}"
-    brightness_state_topic: "homebridge/Living Room Light/status"
-    brightness_command_topic: "homebridge/Living Room Light/set"
+    brightness_state_topic: "homebridge/Living-Room-Light/status"
+    brightness_command_topic: "homebridge/Living-Room-Light/set"
     brightness_value_template: "{{ value_json.brightness }}"
     brightness_scale: 100
 ```

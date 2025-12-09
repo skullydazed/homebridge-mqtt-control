@@ -21,6 +21,7 @@ export class ExamplePlatformAccessory {
 
   private readonly deviceName: string;
   private readonly deviceType: string;
+  private readonly mqttTopicName: string;
 
   constructor(
     private readonly platform: ExampleHomebridgePlatform,
@@ -28,6 +29,8 @@ export class ExamplePlatformAccessory {
   ) {
     this.deviceName = accessory.context.device.name;
     this.deviceType = accessory.context.device.type || 'lightbulb';
+    // Sanitize device name for MQTT topics
+    this.mqttTopicName = this.sanitizeMqttTopic(this.deviceName);
 
     // set accessory information
     this.accessory.getService(this.platform.Service.AccessoryInformation)!
@@ -79,6 +82,14 @@ export class ExamplePlatformAccessory {
   }
 
   /**
+   * Sanitize device name for use in MQTT topics
+   */
+  sanitizeMqttTopic(name: string): string {
+    // Replace spaces and special characters with hyphens
+    return name.replace(/[^a-zA-Z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+  }
+
+  /**
    * Subscribe to MQTT commands for this device
    */
   subscribeToCommands() {
@@ -86,7 +97,7 @@ export class ExamplePlatformAccessory {
       return;
     }
 
-    const commandTopic = `${this.platform.topicPrefix}/${this.deviceName}/set`;
+    const commandTopic = `${this.platform.topicPrefix}/${this.mqttTopicName}/set`;
     this.platform.mqttClient.subscribe(commandTopic, (error) => {
       if (error) {
         this.platform.log.error('Error subscribing to command topic:', error.message);
@@ -140,7 +151,7 @@ export class ExamplePlatformAccessory {
       state.brightness = this.exampleStates.Brightness;
     }
 
-    this.platform.publishStatus(`${this.deviceName}/status`, JSON.stringify(state));
+    this.platform.publishStatus(`${this.mqttTopicName}/status`, JSON.stringify(state));
   }
 
   /**
