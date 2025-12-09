@@ -1,22 +1,25 @@
 {
-  "name": "homebridge-plugin-name",
-  "displayName": "Plugin Name",
+  "name": "homebridge-mqtt-control",
+  "displayName": "Homebridge MQTT Control",
   "type": "module",
   "version": "1.0.0",
   "private": true,
-  "description": "A short description about what your plugin does.",
-  "author": "Your Name",
+  "description": "A homebridge plugin that advertises device status to MQTT and can receive instructions to change state on those devices via MQTT.",
+  "author": "skullydazed",
   "license": "Apache-2.0",
-  "homepage": "https://github.com/USERNAME/GITHUB_PROJECT_NAME#readme",
+  "homepage": "https://github.com/skullydazed/homebridge-mqtt-control#readme",
   "repository": {
     "type": "git",
-    "url": "https://github.com/USERNAME/GITHUB_PROJECT_NAME.git"
+    "url": "https://github.com/skullydazed/homebridge-mqtt-control.git"
   },
   "bugs": {
-    "url": "https://github.com/USERNAME/GITHUB_PROJECT_NAME/issues"
+    "url": "https://github.com/skullydazed/homebridge-mqtt-control/issues"
   },
   "keywords": [
-    "homebridge-plugin"
+    "homebridge-plugin",
+    "mqtt",
+    "control",
+    "automation"
   ],
   "main": "dist/index.js",
   "engines": {
@@ -30,7 +33,8 @@
     "watch": "npm run build && npm link && nodemon"
   },
   "dependencies": {
-    "homebridge-lib": "^7.1.12"
+    "homebridge-lib": "^7.1.12",
+    "mqtt": "^5.14.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",

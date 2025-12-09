@@ -1,17 +1,68 @@
 {
-  "pluginAlias": "ExampleHomebridgePlugin",
+  "pluginAlias": "MQTTControl",
   "pluginType": "platform",
   "singular": true,
   "strictValidation": false,
   "schema": {
     "type": "object",
-    "required": ["name"],
+    "required": ["name", "broker"],
     "additionalProperties": false,
     "properties": {
       "name": {
         "title": "Name",
         "type": "string",
-        "default": "Example Dynamic Platform"
+        "default": "MQTT Control",
+        "description": "Plugin name as displayed in the Homebridge log"
+      },
+      "broker": {
+        "title": "MQTT Broker URL",
+        "type": "string",
+        "required": true,
+        "placeholder": "mqtt://localhost:1883",
+        "description": "The URL of your MQTT broker (e.g., mqtt://localhost:1883 or mqtts://broker.example.com:8883)"
+      },
+      "username": {
+        "title": "MQTT Username",
+        "type": "string",
+        "description": "Username for MQTT broker authentication (optional)"
+      },
+      "password": {
+        "title": "MQTT Password",
+        "type": "string",
+        "description": "Password for MQTT broker authentication (optional)"
+      },
+      "topicPrefix": {
+        "title": "Topic Prefix",
+        "type": "string",
+        "default": "homebridge",
+        "description": "Prefix for all MQTT topics (default: homebridge)"
+      },
+      "accessories": {
+        "title": "Accessories",
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "title": "Accessory Name",
+              "type": "string",
+              "required": true,
+              "description": "Name of the accessory as shown in HomeKit"
+            },
+            "type": {
+              "title": "Accessory Type",
+              "type": "string",
+              "required": true,
+              "default": "lightbulb",
+              "oneOf": [
+                { "title": "Lightbulb", "enum": ["lightbulb"] },
+                { "title": "Switch", "enum": ["switch"] },
+                { "title": "Outlet", "enum": ["outlet"] }
+              ],
+              "description": "Type of accessory"
+            }
+          }
+        }
       }
     }
   }

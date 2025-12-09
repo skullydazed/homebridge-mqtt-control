@@ -19,30 +19,43 @@ export class ExamplePlatformAccessory {
     Brightness: 100,
   };
 
+  private readonly deviceName: string;
+  private readonly deviceType: string;
+
   constructor(
     private readonly platform: ExampleHomebridgePlatform,
     private readonly accessory: PlatformAccessory,
   ) {
+    this.deviceName = accessory.context.device.name;
+    this.deviceType = accessory.context.device.type || 'lightbulb';
+
     // set accessory information
     this.accessory.getService(this.platform.Service.AccessoryInformation)!
-      .setCharacteristic(this.platform.Characteristic.Manufacturer, 'Default-Manufacturer')
-      .setCharacteristic(this.platform.Characteristic.Model, 'Default-Model')
-      .setCharacteristic(this.platform.Characteristic.SerialNumber, 'Default-Serial');
+      .setCharacteristic(this.platform.Characteristic.Manufacturer, 'MQTT Control')
+      .setCharacteristic(this.platform.Characteristic.Model, this.deviceType)
+      .setCharacteristic(this.platform.Characteristic.SerialNumber, this.deviceName);
 
-    // get the LightBulb service if it exists, otherwise create a new LightBulb service
+    // get the service based on device type
     // you can create multiple services for each accessory
-
-    if (accessory.context.device.CustomService) {
-      // This is only required when using Custom Services and Characteristics not support by HomeKit
-      this.service = this.accessory.getService(this.platform.CustomServices[accessory.context.device.CustomService]) ||
-        this.accessory.addService(this.platform.CustomServices[accessory.context.device.CustomService]);
-    } else {
-      this.service = this.accessory.getService(this.platform.Service.Lightbulb) || this.accessory.addService(this.platform.Service.Lightbulb);
+    switch (this.deviceType.toLowerCase()) {
+    case 'switch':
+      this.service = this.accessory.getService(this.platform.Service.Switch) || 
+        this.accessory.addService(this.platform.Service.Switch);
+      break;
+    case 'outlet':
+      this.service = this.accessory.getService(this.platform.Service.Outlet) || 
+        this.accessory.addService(this.platform.Service.Outlet);
+      break;
+    case 'lightbulb':
+    default:
+      this.service = this.accessory.getService(this.platform.Service.Lightbulb) || 
+        this.accessory.addService(this.platform.Service.Lightbulb);
+      break;
     }
 
     // set the service name, this is what is displayed as the default name on the Home app
     // in this example we are using the name we stored in the `accessory.context` in the `discoverDevices` method.
-    this.service.setCharacteristic(this.platform.Characteristic.Name, accessory.context.device.exampleDisplayName);
+    this.service.setCharacteristic(this.platform.Characteristic.Name, this.deviceName);
 
     // each service must implement at-minimum the "required characteristics" for the given service type
     // see https://developers.homebridge.io/#/service/Lightbulb
@@ -52,49 +65,82 @@ export class ExamplePlatformAccessory {
       .onSet(this.setOn.bind(this)) // SET - bind to the `setOn` method below
       .onGet(this.getOn.bind(this)); // GET - bind to the `getOn` method below
 
-    // register handlers for the Brightness Characteristic
-    this.service.getCharacteristic(this.platform.Characteristic.Brightness)
-      .onSet(this.setBrightness.bind(this)); // SET - bind to the `setBrightness` method below
+    // register handlers for the Brightness Characteristic (only for lightbulbs)
+    if (this.deviceType.toLowerCase() === 'lightbulb') {
+      this.service.getCharacteristic(this.platform.Characteristic.Brightness)
+        .onSet(this.setBrightness.bind(this)); // SET - bind to the `setBrightness` method below
+    }
 
-    /**
-     * Creating multiple services of the same type.
-     *
-     * To avoid "Cannot add a Service with the same UUID another Service without also defining a unique 'subtype' property." error,
-     * when creating multiple services of the same type, you need to use the following syntax to specify a name and subtype id:
-     * this.accessory.getService('NAME') || this.accessory.addService(this.platform.Service.Lightbulb, 'NAME', 'USER_DEFINED_SUBTYPE_ID');
-     *
-     * The USER_DEFINED_SUBTYPE must be unique to the platform accessory (if you platform exposes multiple accessories, each accessory
-     * can use the same subtype id.)
-     */
+    // Subscribe to MQTT commands for this device
+    this.subscribeToCommands();
 
-    // Example: add two "motion sensor" services to the accessory
-    const motionSensorOneService = this.accessory.getService('Motion Sensor One Name')
-      || this.accessory.addService(this.platform.Service.MotionSensor, 'Motion Sensor One Name', 'YourUniqueIdentifier-1');
+    // Publish initial status
+    this.publishState();
+  }
 
-    const motionSensorTwoService = this.accessory.getService('Motion Sensor Two Name')
-      || this.accessory.addService(this.platform.Service.MotionSensor, 'Motion Sensor Two Name', 'YourUniqueIdentifier-2');
+  /**
+   * Subscribe to MQTT commands for this device
+   */
+  subscribeToCommands() {
+    if (!this.platform.mqttClient) {
+      return;
+    }
 
-    /**
-     * Updating characteristics values asynchronously.
-     *
-     * Example showing how to update the state of a Characteristic asynchronously instead
-     * of using the `on('get')` handlers.
-     * Here we change update the motion sensor trigger states on and off every 10 seconds
-     * the `updateCharacteristic` method.
-     *
-     */
-    let motionDetected = false;
-    setInterval(() => {
-      // EXAMPLE - inverse the trigger
-      motionDetected = !motionDetected;
+    const commandTopic = `${this.platform.topicPrefix}/${this.deviceName}/set`;
+    this.platform.mqttClient.subscribe(commandTopic, (error) => {
+      if (error) {
+        this.platform.log.error('Error subscribing to command topic:', error.message);
+      } else {
+        this.platform.log.info('Subscribed to command topic:', commandTopic);
+      }
+    });
 
-      // push the new value to HomeKit
-      motionSensorOneService.updateCharacteristic(this.platform.Characteristic.MotionDetected, motionDetected);
-      motionSensorTwoService.updateCharacteristic(this.platform.Characteristic.MotionDetected, !motionDetected);
+    // Handle incoming MQTT messages
+    this.platform.mqttClient.on('message', (topic, message) => {
+      if (topic === commandTopic) {
+        this.handleCommand(message.toString());
+      }
+    });
+  }
 
-      this.platform.log.debug('Triggering motionSensorOneService:', motionDetected);
-      this.platform.log.debug('Triggering motionSensorTwoService:', !motionDetected);
-    }, 10000);
+  /**
+   * Handle incoming MQTT command
+   */
+  handleCommand(message: string) {
+    try {
+      const command = JSON.parse(message);
+      this.platform.log.debug('Received command for', this.deviceName, ':', command);
+
+      if (command.on !== undefined) {
+        this.exampleStates.On = command.on;
+        this.service.updateCharacteristic(this.platform.Characteristic.On, command.on);
+      }
+
+      if (command.brightness !== undefined && this.deviceType.toLowerCase() === 'lightbulb') {
+        this.exampleStates.Brightness = command.brightness;
+        this.service.updateCharacteristic(this.platform.Characteristic.Brightness, command.brightness);
+      }
+
+      // Publish updated state
+      this.publishState();
+    } catch (error) {
+      this.platform.log.error('Error parsing command:', error);
+    }
+  }
+
+  /**
+   * Publish current state to MQTT
+   */
+  publishState() {
+    const state: { on: boolean; brightness?: number } = {
+      on: this.exampleStates.On,
+    };
+
+    if (this.deviceType.toLowerCase() === 'lightbulb') {
+      state.brightness = this.exampleStates.Brightness;
+    }
+
+    this.platform.publishStatus(`${this.deviceName}/status`, JSON.stringify(state));
   }
 
   /**
@@ -105,7 +151,10 @@ export class ExamplePlatformAccessory {
     // implement your own code to turn your device on/off
     this.exampleStates.On = value as boolean;
 
-    this.platform.log.debug('Set Characteristic On ->', value);
+    this.platform.log.debug('Set Characteristic On ->', value, 'for', this.deviceName);
+
+    // Publish the state change to MQTT
+    this.publishState();
   }
 
   /**
@@ -127,7 +176,7 @@ export class ExamplePlatformAccessory {
     // implement your own code to check if the device is on
     const isOn = this.exampleStates.On;
 
-    this.platform.log.debug('Get Characteristic On ->', isOn);
+    this.platform.log.debug('Get Characteristic On ->', isOn, 'for', this.deviceName);
 
     // if you need to return an error to show the device as "Not Responding" in the Home app:
     // throw new this.platform.api.hap.HapStatusError(this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE);
@@ -143,6 +192,9 @@ export class ExamplePlatformAccessory {
     // implement your own code to set the brightness
     this.exampleStates.Brightness = value as number;
 
-    this.platform.log.debug('Set Characteristic Brightness -> ', value);
+    this.platform.log.debug('Set Characteristic Brightness -> ', value, 'for', this.deviceName);
+
+    // Publish the state change to MQTT
+    this.publishState();
   }
 }

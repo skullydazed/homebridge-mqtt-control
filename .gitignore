@@ -123,4 +123,6 @@ dist
 # Webstorm
 .idea
 
-/test/hbConfig
+/test/hbConfig/auth.json
+/test/hbConfig/persist
+/test/hbConfig/accessories

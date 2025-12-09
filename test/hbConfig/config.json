@@ -5,9 +5,9 @@
     "port": 51826,
     "pin": "031-45-154"
   },
-  "description": "HomeBridge HTTP Status Control",
+  "description": "HomeBridge MQTT Control",
   "plugins": [
-    "homebridge-plugin-name",
+    "homebridge-mqtt-control",
     "homebridge-config-ui-x"
   ],
   "platforms": [
@@ -23,8 +23,20 @@
       "debug": false
     },
     {
-      "name": "homebridge-plugin-name",
-      "platform": "ExampleHomebridgePlugin"
+      "name": "MQTT Control",
+      "platform": "MQTTControl",
+      "broker": "mqtt://localhost:1883",
+      "topicPrefix": "homebridge",
+      "accessories": [
+        {
+          "name": "Living Room Light",
+          "type": "lightbulb"
+        },
+        {
+          "name": "Kitchen Switch",
+          "type": "switch"
+        }
+      ]
     }
   ],
   "accessories": []
