@@ -82,18 +82,21 @@ No manual configuration needed - just connect your MQTT broker and all your cach
 
 The plugin uses the following MQTT topic structure:
 
-**Note:** Accessory names are automatically sanitized for MQTT topics. Spaces and special characters are replaced with hyphens. For example, "Living Room Light" becomes "Living-Room-Light".
+**Note:** 
+- Topics automatically include the Homebridge instance hostname to support multiple instances
+- Accessory names are automatically sanitized for MQTT topics: spaces and special characters are replaced with hyphens, and names are converted to lowercase
+- For example, "Living Room Light" on hostname "myserver" becomes "homebridge/myserver/living-room-light"
 
 ### Status Topics (Published by Plugin)
 
 The plugin publishes device status to:
 ```
-{topicPrefix}/{sanitized-accessory-name}/status
+{topicPrefix}/{hostname}/{sanitized-accessory-name}/status
 ```
 
 **Example:**
 ```
-homebridge/Living-Room-Light/status
+homebridge/raspberrypi/living-room-light/status
 ```
 
 **Payload format:**
@@ -110,12 +113,12 @@ For switches and outlets, the `brightness` property is omitted.
 
 The plugin listens for commands on:
 ```
-{topicPrefix}/{sanitized-accessory-name}/set
+{topicPrefix}/{hostname}/{sanitized-accessory-name}/set
 ```
 
 **Example:**
 ```
-homebridge/Living-Room-Light/set
+homebridge/raspberrypi/living-room-light/set
 ```
 
 **Payload format:**
@@ -135,31 +138,40 @@ You can send partial updates. For example, to only change the brightness:
 
 ### Connection Status
 
+### Connection Status
+
 The plugin publishes its connection status to:
 ```
-{topicPrefix}/connected
+{topicPrefix}/{hostname}/connected
+```
+
+**Example:**
+```
+homebridge/raspberrypi/connected
 ```
 
 Payload: `true` when connected
 
 ## Usage Examples
 
+**Note:** Replace `raspberrypi` with your actual hostname in the examples below.
+
 ### Turn on a light via MQTT
 
 ```bash
-mosquitto_pub -h localhost -t "homebridge/Living-Room-Light/set" -m '{"on": true}'
+mosquitto_pub -h localhost -t "homebridge/raspberrypi/living-room-light/set" -m '{"on": true}'
 ```
 
 ### Set brightness of a light
 
 ```bash
-mosquitto_pub -h localhost -t "homebridge/Living-Room-Light/set" -m '{"on": true, "brightness": 75}'
+mosquitto_pub -h localhost -t "homebridge/raspberrypi/living-room-light/set" -m '{"on": true, "brightness": 75}'
 ```
 
 ### Turn off a switch
 
 ```bash
-mosquitto_pub -h localhost -t "homebridge/Kitchen-Switch/set" -m '{"on": false}'
+mosquitto_pub -h localhost -t "homebridge/raspberrypi/kitchen-switch/set" -m '{"on": false}'
 ```
 
 ### Monitor status changes
@@ -175,28 +187,28 @@ mosquitto_sub -h localhost -t "homebridge/#" -v
 You can easily integrate with Node-RED using MQTT nodes:
 
 1. **Subscribe to status updates:**
-   - Topic: `homebridge/+/status`
+   - Topic: `homebridge/+/+/status` (where first `+` is hostname, second `+` is device name)
    - Parse the JSON payload to get device states
 
 2. **Send commands:**
-   - Topic: `homebridge/{device-name}/set`
+   - Topic: `homebridge/{hostname}/{device-name}/set`
    - Send JSON payload with desired state
 
 ### Home Assistant
 
-Add MQTT switches/lights in your Home Assistant configuration:
+Add MQTT switches/lights in your Home Assistant configuration. Replace `raspberrypi` with your hostname:
 
 ```yaml
 light:
   - platform: mqtt
     name: "Living Room Light"
-    state_topic: "homebridge/Living-Room-Light/status"
-    command_topic: "homebridge/Living-Room-Light/set"
+    state_topic: "homebridge/raspberrypi/living-room-light/status"
+    command_topic: "homebridge/raspberrypi/living-room-light/set"
     payload_on: '{"on": true}'
     payload_off: '{"on": false}'
     state_value_template: "{{ 'ON' if value_json.on else 'OFF' }}"
-    brightness_state_topic: "homebridge/Living-Room-Light/status"
-    brightness_command_topic: "homebridge/Living-Room-Light/set"
+    brightness_state_topic: "homebridge/raspberrypi/living-room-light/status"
+    brightness_command_topic: "homebridge/raspberrypi/living-room-light/set"
     brightness_value_template: "{{ value_json.brightness }}"
     brightness_scale: 100
 ```

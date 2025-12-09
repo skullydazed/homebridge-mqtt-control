@@ -132,8 +132,8 @@ export class ExamplePlatformAccessory {
    * Sanitize device name for use in MQTT topics
    */
   sanitizeMqttTopic(name: string): string {
-    // Replace spaces and special characters with hyphens
-    return name.replace(/[^a-zA-Z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+    // Replace spaces and special characters with hyphens, then normalize to lowercase
+    return name.replace(/[^a-zA-Z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '').toLowerCase();
   }
 
   /**

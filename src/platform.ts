@@ -1,5 +1,6 @@
 import type { API, Characteristic, DynamicPlatformPlugin, Logging, PlatformAccessory, PlatformConfig, Service } from 'homebridge';
 import * as mqtt from 'mqtt';
+import * as os from 'os';
 
 import { ExamplePlatformAccessory } from './platformAccessory.js';
 import { PLATFORM_NAME, PLUGIN_NAME } from './settings.js';
@@ -55,9 +56,12 @@ export class ExampleHomebridgePlatform implements DynamicPlatformPlugin {
 
     // Get MQTT configuration
     const mqttConfig = this.config as MQTTConfig;
-    this.topicPrefix = mqttConfig.topicPrefix || 'homebridge';
+    const hostname = os.hostname();
+    const basePrefix = mqttConfig.topicPrefix || 'homebridge';
+    this.topicPrefix = `${basePrefix}/${hostname}`;
 
     this.log.debug('Finished initializing platform:', this.config.name);
+    this.log.debug('MQTT topic prefix:', this.topicPrefix);
 
     // Validate MQTT configuration
     if (!mqttConfig.broker) {
